@@ -1,3 +1,8 @@
+import { Octokit } from "https://esm.sh/@octokit/core";
+  import {
+    createOrUpdateTextFile,
+    composeCreateOrUpdateTextFile,
+  } from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
 // script.js
 const cardsData = [
     { name: 'Person 1', image: 'https://via.placeholder.com/300x400?text=Person+1' },
@@ -169,44 +174,15 @@ function handleMouseLeave(event) {
 }
 
 
-const GITHUB_API_URL = 'https://api.github.com';
-const GITHUB_USERNAME = 'aminelahouazi';
-const REPO_NAME = 'cat_tiinder';
-const FILE_PATH = 'interactions.txt';  // New file to track all interactions
-const GITHUB_TOKEN = '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'; // Replace with your token
-
-// Function to format the current date and time
-function getFormattedDateTime() {
-    const now = new Date();
-    return now.toISOString();
-}
-
-// Function to handle interaction logging
-async function logInteraction(interactionType, details = {}) {
-    try {
-        // Get current file content if it exists
-        const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
 
         let sha;
         let existingContent = '';
 
-        if (getCurrentFile.ok) {
-            const fileInfo = await getCurrentFile.json();
-            sha = fileInfo.sha;
-            existingContent = atob(fileInfo.content.replace(/\n/g, '')) + '\n';
-        } else if (getCurrentFile.status !== 404) {
-            console.error('Failed to get current file:', getCurrentFile.status);
-            return;
-        }
+    
 
         // Create new log entry
         const timestamp = getFormattedDateTime();
-        const newEntry = `[${timestamp}] Type: ${interactionType}, User: ${userName || 'Anonymous'}`;
+        const newEntry = `[${timestamp}] Type: ${interactionType}, User: ${userName}`;
 
         // Add additional details if they exist
         if (details.profile) newEntry += `, Profile: ${details.profile}`;
@@ -215,37 +191,26 @@ async function logInteraction(interactionType, details = {}) {
         const updatedContent = existingContent + newEntry + '\n';
 
         // Prepare the request body
-        const requestBody = {
-            message: `Update interaction log - ${timestamp}`,
-            content: btoa(updatedContent),
-            branch: 'main'
-        };
+        const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
+const octokit = new MyOctokit({ auth: "secret123" });
+const {
+  updated,
+  data: { commit },
+} = await octokit.createOrUpdateTextFile({
+  owner: "aminelahouazi",
+  repo: "cat_tiinder",
+  path: "userLikes.txt",
+  content: updatedContent,
+  message: "update userLikes.txt",
+});
 
-        if (sha) {
-            requestBody.sha = sha;
-        }
-
-        // Update or create the file
-        const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github.v3+json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to save interaction log: ${response.status}`);
-        }
-
-        console.log('Successfully logged interaction');
-    } catch (error) {
-        console.error('Error logging interaction:', error);
-    }
+if (updated) {
+  console.log("test.txt updated via %s", data.commit.html_url);
+} else {
+  console.log("test.txt already up to date");
 }
-
+        
+        
 
 document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
 document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
