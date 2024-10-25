@@ -168,9 +168,9 @@ const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
 const FILE_PATH = 'userLikes.txt';
-const GITHUB_TOKEN = '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';
+// Make sure to replace this with your new token
+const GITHUB_TOKEN = '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';
 
-// Add this function to handle saving data to GitHub
 async function saveDataToGitHub(data) {
     try {
         console.log('Attempting to save data to GitHub...');
@@ -178,12 +178,19 @@ async function saveDataToGitHub(data) {
         // First, get the current file content and SHA
         const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             headers: {
-                'Authorization': `Bearer ${GITHUB_TOKEN}`,  // Changed to Bearer token format
+                // Changed token format - this is the correct format for GitHub API
+                'Authorization': `token ${GITHUB_TOKEN}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
         });
 
         console.log('Get current file status:', getCurrentFile.status);
+        
+        // Test the authentication
+        if (getCurrentFile.status === 401) {
+            console.error('Authentication failed - invalid token');
+            throw new Error('GitHub authentication failed - please check your token');
+        }
         
         let sha;
         let existingContent = '';
@@ -212,7 +219,6 @@ async function saveDataToGitHub(data) {
             content: btoa(updatedContent)
         };
 
-        // Only include sha if we have one (file exists)
         if (sha) {
             requestBody.sha = sha;
         }
@@ -223,7 +229,8 @@ async function saveDataToGitHub(data) {
         const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${GITHUB_TOKEN}`,  // Changed to Bearer token format
+                // Same token format here
+                'Authorization': `token ${GITHUB_TOKEN}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/vnd.github.v3+json'
             },
@@ -240,16 +247,9 @@ async function saveDataToGitHub(data) {
         console.log('Successfully saved data to GitHub');
     } catch (error) {
         console.error('Detailed error saving data to GitHub:', error);
-        // Log the error details for debugging
-        if (error.response) {
-            console.error('Response:', await error.response.text());
-        }
         alert(`Failed to save data. Error: ${error.message}`);
     }
 }
-
-// Rest of the code remains the same...
-
 
 
 
