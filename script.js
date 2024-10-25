@@ -61,14 +61,12 @@ function handleSwipe(action) {
         currentCard.style.opacity = '0';
 
         const cardData = cardsData[currentCardIndex];
-        const likeData = {
-            name: userName,
-            liked: cardData.name,
-            likedStatus: action
-        };
         
-        // Save data to GitHub
-        saveDataToGitHub(likeData);
+        // Log the swipe interaction
+        logInteraction('swipe', {
+            profile: cardData.name,
+            action: action
+        });
 
         currentCardIndex++;
         setTimeout(() => {
@@ -82,11 +80,14 @@ function handleSwipe(action) {
     }
 }
 
-// Modify the name submission handler to store the user's name
+// Modify your name submission handler to log the start of a session
 document.getElementById('submitName').addEventListener('click', () => {
     const nameInput = document.getElementById('nameInput').value;
     if (nameInput) {
-        userName = nameInput; // Store the user's name
+        userName = nameInput;
+        // Log the session start
+        logInteraction('session_start');
+        
         document.getElementById('nameInputCard').style.display = 'none';
         document.querySelector('.card-container').style.display = 'block';
         document.querySelector('.buttons').style.display = 'block';
@@ -95,6 +96,11 @@ document.getElementById('submitName').addEventListener('click', () => {
         alert('Please enter your name!');
     }
 });
+
+// Add end session logging when all cards are done
+function handleEndSession() {
+    logInteraction('session_end');
+}
 
 // Touch event handlers
 function handleTouchStart(event) {
@@ -163,83 +169,82 @@ function handleMouseLeave(event) {
 }
 
 
-// Constants at the top of your file
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
-const FILE_PATH = 'userLikes.txt';
-// You'll replace this with your new classic token
-const GITHUB_TOKEN = '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';
+const FILE_PATH = 'interactions.txt';  // New file to track all interactions
+const GITHUB_TOKEN = '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'; // Replace with your token
 
-async function saveDataToGitHub(data) {
+// Function to format the current date and time
+function getFormattedDateTime() {
+    const now = new Date();
+    return now.toISOString();
+}
+
+// Function to handle interaction logging
+async function logInteraction(interactionType, details = {}) {
     try {
-        // Test authentication first
-        const testAuth = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,  // Changed to 'token' instead of 'Bearer'
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-
-        if (testAuth.status === 401) {
-            const errorData = await testAuth.json();
-            throw new Error(`Authentication failed: ${errorData.message}`);
-        }
-
-        // Get the current file content
+        // Get current file content if it exists
         const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,  // Changed to 'token' instead of 'Bearer'
+                'Authorization': `token ${GITHUB_TOKEN}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
         });
 
         let sha;
         let existingContent = '';
-        
-        const fileInfo = await getCurrentFile.json();
-        
+
         if (getCurrentFile.ok) {
+            const fileInfo = await getCurrentFile.json();
             sha = fileInfo.sha;
-            // Decode existing content from base64
             existingContent = atob(fileInfo.content.replace(/\n/g, '')) + '\n';
-        } else {
-            console.error('GitHub API Error:', fileInfo);
-            throw new Error(`GitHub API Error: ${fileInfo.message}`);
+        } else if (getCurrentFile.status !== 404) {
+            console.error('Failed to get current file:', getCurrentFile.status);
+            return;
         }
 
-        // Prepare new content
-        const newEntry = `User: ${userName}, Action: ${data.likedStatus}, Profile: ${data.liked}\n`;
-        const updatedContent = existingContent + newEntry;
+        // Create new log entry
+        const timestamp = getFormattedDateTime();
+        const newEntry = `[${timestamp}] Type: ${interactionType}, User: ${userName || 'Anonymous'}`;
 
-        // Update file in repository
+        // Add additional details if they exist
+        if (details.profile) newEntry += `, Profile: ${details.profile}`;
+        if (details.action) newEntry += `, Action: ${details.action}`;
+        
+        const updatedContent = existingContent + newEntry + '\n';
+
+        // Prepare the request body
+        const requestBody = {
+            message: `Update interaction log - ${timestamp}`,
+            content: btoa(updatedContent),
+            branch: 'main'
+        };
+
+        if (sha) {
+            requestBody.sha = sha;
+        }
+
+        // Update or create the file
         const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             method: 'PUT',
             headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,  // Changed to 'token' instead of 'Bearer'
+                'Authorization': `token ${GITHUB_TOKEN}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/vnd.github.v3+json'
             },
-            body: JSON.stringify({
-                message: `Update user likes data - ${new Date().toISOString()}`,
-                content: btoa(updatedContent),
-                sha: sha,
-                branch: 'main'
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`Failed to save data: ${errorData.message}`);
+            throw new Error(`Failed to save interaction log: ${response.status}`);
         }
 
-        console.log('Successfully saved data to GitHub');
+        console.log('Successfully logged interaction');
     } catch (error) {
-        console.error('Error saving data to GitHub:', error);
-        alert(error.message);
+        console.error('Error logging interaction:', error);
     }
 }
-
 
 
 document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
