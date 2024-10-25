@@ -163,35 +163,34 @@ function handleMouseLeave(event) {
 }
 
 
-// Add these constants at the top of your file
+// Constants at the top of your file
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
 const FILE_PATH = 'userLikes.txt';
-// We'll use a fine-grained token with minimal permissions
-const GITHUB_TOKEN = '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'; // You'll replace this with your new token
+// You'll replace this with your new classic token
+const GITHUB_TOKEN = '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';
 
 async function saveDataToGitHub(data) {
     try {
         // Test authentication first
         const testAuth = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             headers: {
-                'Authorization': `Bearer ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'X-GitHub-Api-Version': '2022-11-28'
+                'Authorization': `token ${GITHUB_TOKEN}`,  // Changed to 'token' instead of 'Bearer'
+                'Accept': 'application/vnd.github.v3+json'
             }
         });
 
         if (testAuth.status === 401) {
-            throw new Error('Authentication failed. Please check your GitHub token.');
+            const errorData = await testAuth.json();
+            throw new Error(`Authentication failed: ${errorData.message}`);
         }
 
         // Get the current file content
         const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             headers: {
-                'Authorization': `Bearer ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'X-GitHub-Api-Version': '2022-11-28'
+                'Authorization': `token ${GITHUB_TOKEN}`,  // Changed to 'token' instead of 'Bearer'
+                'Accept': 'application/vnd.github.v3+json'
             }
         });
 
@@ -203,7 +202,7 @@ async function saveDataToGitHub(data) {
         if (getCurrentFile.ok) {
             sha = fileInfo.sha;
             // Decode existing content from base64
-            existingContent = atob(fileInfo.content || '') + '\n';
+            existingContent = atob(fileInfo.content.replace(/\n/g, '')) + '\n';
         } else {
             console.error('GitHub API Error:', fileInfo);
             throw new Error(`GitHub API Error: ${fileInfo.message}`);
@@ -217,10 +216,9 @@ async function saveDataToGitHub(data) {
         const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                'Authorization': `token ${GITHUB_TOKEN}`,  // Changed to 'token' instead of 'Bearer'
                 'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github.v3+json',
-                'X-GitHub-Api-Version': '2022-11-28'
+                'Accept': 'application/vnd.github.v3+json'
             },
             body: JSON.stringify({
                 message: `Update user likes data - ${new Date().toISOString()}`,
@@ -241,7 +239,6 @@ async function saveDataToGitHub(data) {
         alert(error.message);
     }
 }
-
 
 
 
