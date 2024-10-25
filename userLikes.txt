@@ -1,0 +1,3 @@
+ - Person 1 (dislike)
+ - Person 2 (like)
+ - Person 3 (dislike)
