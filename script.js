@@ -169,7 +169,7 @@ const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
 const FILE_PATH = 'userLikes.txt';
 // We'll use a fine-grained token with minimal permissions
-const GITHUB_TOKEN = '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'; // You'll replace this with your new token
+const GITHUB_TOKEN = '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'; // You'll replace this with your new token
 
 async function saveDataToGitHub(data) {
     try {
