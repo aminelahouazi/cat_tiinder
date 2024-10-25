@@ -167,7 +167,7 @@ function handleMouseLeave(event) {
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
-const FILE_PATH = '../userLikes.txt';
+const FILE_PATH = 'userLikes.txt';
 const GITHUB_TOKEN = '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';
 
 // Add this function to handle saving data to GitHub
