@@ -60,8 +60,15 @@ function handleSwipe(action) {
         currentCard.style.transform = action === 'like' ? 'translateX(100%)' : 'translateX(-100%)';
         currentCard.style.opacity = '0';
 
-        const cardData = cardsData[currentCardIndex]; // Get current card data
-        userLikes.push({ name: userName, liked: cardData.name, likedStatus: action }); // Store user's choice
+        const cardData = cardsData[currentCardIndex];
+        const likeData = {
+            name: userName,
+            liked: cardData.name,
+            likedStatus: action
+        };
+        
+        // Save data to GitHub
+        saveDataToGitHub(likeData);
 
         currentCardIndex++;
         setTimeout(() => {
@@ -69,12 +76,25 @@ function handleSwipe(action) {
             if (currentCardIndex < cardsData.length) {
                 loadCards();
             } else {
-                saveDataToFile(); // Save the data to a text file after the last card
                 alert('No more profiles!');
             }
         }, 300);
     }
 }
+
+// Modify the name submission handler to store the user's name
+document.getElementById('submitName').addEventListener('click', () => {
+    const nameInput = document.getElementById('nameInput').value;
+    if (nameInput) {
+        userName = nameInput; // Store the user's name
+        document.getElementById('nameInputCard').style.display = 'none';
+        document.querySelector('.card-container').style.display = 'block';
+        document.querySelector('.buttons').style.display = 'block';
+        loadCards();
+    } else {
+        alert('Please enter your name!');
+    }
+});
 
 // Touch event handlers
 function handleTouchStart(event) {
@@ -144,77 +164,63 @@ function handleMouseLeave(event) {
 
 
 // Replace these constants with your actual values
+const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
-const FILE_PATH = 'userLikes.txt'; // Path to the file in the repo
-const GITHUB_TOKEN = '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'; // Use environment variables for security in real applications
+const FILE_PATH = 'userLikes.txt';
+const GITHUB_TOKEN = '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';
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Use environment variable
-const GITHUB_USERNAME = process.env.GITHUB_USERNAME;
-const REPO_NAME = process.env.REPO_NAME;
-
-
-async function saveDataToFile() {
-    const likesList = userLikes.map(like => `${like.liked} (${like.likedStatus})`);
-    const message = `Name: ${userName}\nLikes:\n${likesList.join('\n')}`;
-
+// Add this function to handle saving data to GitHub
+async function saveDataToGitHub(data) {
     try {
-        // Fetch the existing file to get the current SHA
-        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
-            method: 'GET',
+        // First, get the current file content and SHA
+        const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             headers: {
                 'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3.raw'
+                'Accept': 'application/vnd.github.v3+json'
             }
         });
 
+        let sha;
         let existingContent = '';
-        let sha = null;
-
-        if (response.ok) {
-            const shaResponse = await response.json();
-            sha = shaResponse.sha; // Get the SHA of the file
-            existingContent = atob(shaResponse.content); // Decode existing content from Base64
-        } else if (response.status === 404) {
-            console.log('File not found, will create a new one.');
-        } else {
-            throw new Error(`Error fetching file: ${response.statusText}`);
+        
+        if (getCurrentFile.ok) {
+            const fileInfo = await getCurrentFile.json();
+            sha = fileInfo.sha;
+            // Decode existing content from base64
+            existingContent = atob(fileInfo.content) + '\n';
         }
 
-        // Prepare the new content
-        const updatedContent = existingContent + message + '\n\n';
+        // Prepare new content
+        const newEntry = `User: ${userName}, Action: ${data.likedStatus}, Profile: ${data.liked}\n`;
+        const updatedContent = existingContent + newEntry;
 
-        // Update or create the file
-        const updateResponse = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
+        // Update file in repository
+        const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/vnd.github.v3+json'
             },
             body: JSON.stringify({
-                message: 'Added user likes',
-                content: btoa(updatedContent), // Base64 encode the content
-                sha: sha // Provide the SHA of the existing file if it exists
+                message: `Update user likes data - ${new Date().toISOString()}`,
+                content: btoa(updatedContent),
+                sha: sha // Include SHA if file exists
             })
         });
 
-        if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            throw new Error(`Error updating file: ${errorData.message}`);
+        if (!response.ok) {
+            throw new Error('Failed to save data to GitHub');
         }
 
-        console.log('File updated successfully');
+        console.log('Successfully saved data to GitHub');
     } catch (error) {
-        console.error('Error:', error.message);
+        console.error('Error saving data to GitHub:', error);
+        alert('Failed to save data. Please try again.');
     }
 }
-    if (!updateResponse.ok) {
-        console.error('Error updating file:', updateResponse.statusText);
-    } else {
-        console.log('File updated successfully');
-    }
-}
+
 
 
 
