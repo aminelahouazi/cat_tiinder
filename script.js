@@ -163,97 +163,84 @@ function handleMouseLeave(event) {
 }
 
 
-// First, add these constants at the top of your file where other constants are defined
+// Add these constants at the top of your file
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_USERNAME = 'aminelahouazi';
 const REPO_NAME = 'cat_tiinder';
 const FILE_PATH = 'userLikes.txt';
-// Make sure to replace this with your new token
-const GITHUB_TOKEN = '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';
+// We'll use a fine-grained token with minimal permissions
+const GITHUB_TOKEN = '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'; // You'll replace this with your new token
 
 async function saveDataToGitHub(data) {
     try {
-        console.log('Attempting to save data to GitHub...');
-        
-        // First, get the current file content and SHA
-        const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
+        // Test authentication first
+        const testAuth = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             headers: {
-                // Changed token format - this is the correct format for GitHub API
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json'
+                'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'X-GitHub-Api-Version': '2022-11-28'
             }
         });
 
-        console.log('Get current file status:', getCurrentFile.status);
-        
-        // Test the authentication
-        if (getCurrentFile.status === 401) {
-            console.error('Authentication failed - invalid token');
-            throw new Error('GitHub authentication failed - please check your token');
+        if (testAuth.status === 401) {
+            throw new Error('Authentication failed. Please check your GitHub token.');
         }
-        
+
+        // Get the current file content
+        const getCurrentFile = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
+            headers: {
+                'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'X-GitHub-Api-Version': '2022-11-28'
+            }
+        });
+
         let sha;
         let existingContent = '';
         
-        if (getCurrentFile.status === 404) {
-            console.log('File does not exist yet - creating new file');
-        } else if (getCurrentFile.ok) {
-            const fileInfo = await getCurrentFile.json();
-            console.log('Retrieved existing file info:', fileInfo);
+        const fileInfo = await getCurrentFile.json();
+        
+        if (getCurrentFile.ok) {
             sha = fileInfo.sha;
-            existingContent = atob(fileInfo.content) + '\n';
+            // Decode existing content from base64
+            existingContent = atob(fileInfo.content || '') + '\n';
         } else {
-            const errorText = await getCurrentFile.text();
-            console.error('Failed to get current file:', getCurrentFile.status, errorText);
-            throw new Error(`Failed to get current file: ${getCurrentFile.status} ${errorText}`);
+            console.error('GitHub API Error:', fileInfo);
+            throw new Error(`GitHub API Error: ${fileInfo.message}`);
         }
 
         // Prepare new content
         const newEntry = `User: ${userName}, Action: ${data.likedStatus}, Profile: ${data.liked}\n`;
         const updatedContent = existingContent + newEntry;
-        console.log('Preparing to save content:', updatedContent);
 
-        // Create request body
-        const requestBody = {
-            message: `Update user likes data - ${new Date().toISOString()}`,
-            content: btoa(updatedContent)
-        };
-
-        if (sha) {
-            requestBody.sha = sha;
-        }
-
-        console.log('Sending PUT request to GitHub...');
-        
         // Update file in repository
         const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
             method: 'PUT',
             headers: {
-                // Same token format here
-                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Authorization': `Bearer ${GITHUB_TOKEN}`,
                 'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github.v3+json'
+                'Accept': 'application/vnd.github.v3+json',
+                'X-GitHub-Api-Version': '2022-11-28'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({
+                message: `Update user likes data - ${new Date().toISOString()}`,
+                content: btoa(updatedContent),
+                sha: sha,
+                branch: 'main'
+            })
         });
 
-        const responseData = await response.text();
-        console.log('GitHub API Response:', response.status, responseData);
-
         if (!response.ok) {
-            throw new Error(`Failed to save data to GitHub: ${response.status} ${responseData}`);
+            const errorData = await response.json();
+            throw new Error(`Failed to save data: ${errorData.message}`);
         }
 
         console.log('Successfully saved data to GitHub');
     } catch (error) {
-        console.error('Detailed error saving data to GitHub:', error);
-        alert(`Failed to save data. Error: ${error.message}`);
+        console.error('Error saving data to GitHub:', error);
+        alert(error.message);
     }
 }
-
-
-
-
 
 
 
