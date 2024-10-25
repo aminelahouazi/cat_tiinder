@@ -24,7 +24,13 @@
         <button id="like" class="action-button">
             🤍 </button>
     </div>
-
+<script type="module">
+  import { Octokit } from "https://esm.sh/@octokit/core";
+  import {
+    createOrUpdateTextFile,
+    composeCreateOrUpdateTextFile,
+  } from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
+</script>
     <script src="script.js"></script>
 </body>
 </html>
