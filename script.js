@@ -149,6 +149,11 @@ const REPO_NAME = 'cat_tiinder';
 const FILE_PATH = 'userLikes.txt'; // Path to the file in the repo
 const GITHUB_TOKEN = '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'; // Use environment variables for security in real applications
 
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Use environment variable
+const GITHUB_USERNAME = process.env.GITHUB_USERNAME;
+const REPO_NAME = process.env.REPO_NAME;
+
+
 async function saveDataToFile() {
     const likesList = userLikes.map(like => `${like.liked} (${like.likedStatus})`);
     const message = `Name: ${userName}\nLikes:\n${likesList.join('\n')}`;
