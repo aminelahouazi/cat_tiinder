@@ -150,45 +150,60 @@ const FILE_PATH = 'userLikes.txt'; // Path to the file in the repo
 const GITHUB_TOKEN = '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'; // Use environment variables for security in real applications
 
 async function saveDataToFile() {
-    const data = userLikes.map(like => `${like.name} - ${like.liked} (${like.likedStatus})`).join('\n');
-    const message = `${userName} added their likes.\n${data}`;
-    
-    // Fetch the file contents to get the current SHA
-    const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3.raw'
+    const likesList = userLikes.map(like => `${like.liked} (${like.likedStatus})`);
+    const message = `Name: ${userName}\nLikes:\n${likesList.join('\n')}`;
+
+    try {
+        // Fetch the existing file to get the current SHA
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3.raw'
+            }
+        });
+
+        let existingContent = '';
+        let sha = null;
+
+        if (response.ok) {
+            const shaResponse = await response.json();
+            sha = shaResponse.sha; // Get the SHA of the file
+            existingContent = atob(shaResponse.content); // Decode existing content from Base64
+        } else if (response.status === 404) {
+            console.log('File not found, will create a new one.');
+        } else {
+            throw new Error(`Error fetching file: ${response.statusText}`);
         }
-    });
 
-    if (!response.ok) {
-        console.error('Error fetching file:', response.statusText);
-        return;
+        // Prepare the new content
+        const updatedContent = existingContent + message + '\n\n';
+
+        // Update or create the file
+        const updateResponse = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: 'Added user likes',
+                content: btoa(updatedContent), // Base64 encode the content
+                sha: sha // Provide the SHA of the existing file if it exists
+            })
+        });
+
+        if (!updateResponse.ok) {
+            const errorData = await updateResponse.json();
+            throw new Error(`Error updating file: ${errorData.message}`);
+        }
+
+        console.log('File updated successfully');
+    } catch (error) {
+        console.error('Error:', error.message);
     }
-
-    const existingContent = await response.text();
-    const shaResponse = await response.json();
-    const sha = shaResponse.sha; // Get the SHA of the file
-
-    // Prepare the new content
-    const updatedContent = existingContent + '\n' + message;
-
-    // Update the file
-    const updateResponse = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            message: 'Updated user likes',
-            content: btoa(updatedContent), // Base64 encode the content
-            sha: sha // Provide the SHA of the existing file
-        })
-    });
-
+}
     if (!updateResponse.ok) {
         console.error('Error updating file:', updateResponse.statusText);
     } else {
