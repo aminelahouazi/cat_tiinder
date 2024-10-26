@@ -1,8 +1,3 @@
-import { Octokit } from "https://esm.sh/@octokit/core";
-  import {
-    createOrUpdateTextFile,
-    composeCreateOrUpdateTextFile,
-  } from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
 
 // script.js
 const cardsData = [
@@ -150,27 +145,10 @@ function handleMouseLeave(event) {
 
 
 // Replace these constants with your actual values// Use environment variables for security in real applicat
-const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
-const octokit = new MyOctokit({ Authorization: `token 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`});
 
 async function saveDataToFile(){
 
-const {
-  updated,
-  data: { commit },
-} = await octokit.createOrUpdateTextFile({
-  owner: "aminelahouazi",
-  repo: "cat_tiinder",
-  path: "userLikes.txt",
-  content: userLikes,
-  message: "update userlikes.txt",
-});
 
-if (updated) {
-  console.log("test.txt updated via %s");
-} else {
-  console.log("test.txt already up to date");
-}
 
     
   }
