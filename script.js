@@ -5,7 +5,7 @@
 // script.js
 const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
 const octokit = new MyOctokit({ 
-  auth: "your-github-token" // Replace with your actual GitHub token
+  auth: "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" // Replace with your actual GitHub token
 });
 
 const cardsData = [
