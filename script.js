@@ -1,13 +1,4 @@
-// First, add these script tags to your HTML file, above your main script:
-// <script src="https://cdn.jsdelivr.net/npm/@octokit/core"></script>
-// <script src="https://cdn.jsdelivr.net/npm/@octokit/plugin-create-or-update-text-file"></script>
-
 // script.js
-const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
-const octokit = new MyOctokit({ 
-  auth: "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" // Replace with your actual GitHub token
-});
-
 const cardsData = [
     { name: 'Person 1', image: 'https://via.placeholder.com/300x400?text=Person+1' },
     { name: 'Person 2', image: 'https://via.placeholder.com/300x400?text=Person+2' },
@@ -19,69 +10,14 @@ let startX = 0;
 let isDragging = false;
 let currentTranslate = 0;
 let animationId = null;
-let userName = "";
+let userName = ""; // Store the user's name
+let userLikes = []; // Store user's likes
 
-// Helper function to get formatted date-time
-function getFormattedDateTime() {
-    const now = new Date();
-    return now.toISOString();
-}
 
-// Main logging function
-async function logInteraction(interactionType, details = {}) {
-    try {
-        // Create new log entry
-        const timestamp = getFormattedDateTime();
-        const newEntry = {
-            timestamp,
-            type: interactionType,
-            user: userName,
-            ...details
-        };
-
-        try {
-            // Try to get existing content
-            const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: "aminelahouazi",
-                repo: "cat_tiinder",
-                path: "userLikes.txt"
-            });
-
-            // Decode existing content from base64
-            const existingContent = Buffer.from(data.content, 'base64').toString();
-            const updatedContent = existingContent + JSON.stringify(newEntry) + '\n';
-
-            // Update file
-            await octokit.createOrUpdateTextFile({
-                owner: "aminelahouazi",
-                repo: "cat_tiinder",
-                path: "userLikes.txt",
-                content: updatedContent,
-                message: `Update userLikes.txt - ${interactionType} by ${userName}`,
-            });
-
-        } catch (error) {
-            if (error.status === 404) {
-                // File doesn't exist yet, create it
-                await octokit.createOrUpdateTextFile({
-                    owner: "aminelahouazi",
-                    repo: "cat_tiinder",
-                    path: "userLikes.txt",
-                    content: JSON.stringify(newEntry) + '\n',
-                    message: `Create userLikes.txt - First entry by ${userName}`,
-                });
-            } else {
-                throw error;
-            }
-        }
-    } catch (error) {
-        console.error("Error logging interaction:", error);
-    }
-}
-
+// Load initial cards
 function loadCards() {
     const container = document.querySelector('.card-container');
-    container.innerHTML = '';
+    container.innerHTML = ''; // Clear previous cards
     cardsData.forEach((data, index) => {
         const card = document.createElement('div');
         card.classList.add('card');
@@ -89,6 +25,7 @@ function loadCards() {
         card.style.zIndex = cardsData.length - index;
         card.innerHTML = `<h3>${data.name}</h3>`;
 
+        // Add touch and mouse event listeners for swiping
         card.addEventListener('touchstart', handleTouchStart);
         card.addEventListener('touchmove', handleTouchMove);
         card.addEventListener('touchend', handleTouchEnd);
@@ -102,6 +39,19 @@ function loadCards() {
     });
 }
 
+// Handle the submission of the name
+document.getElementById('submitName').addEventListener('click', () => {
+    const nameInput = document.getElementById('nameInput').value;
+    if (nameInput) {
+        document.getElementById('nameInputCard').style.display = 'none'; // Hide the name input card
+        document.querySelector('.card-container').style.display = 'block'; // Show the card container
+        document.querySelector('.buttons').style.display = 'block'; // Show the card container
+        loadCards();
+    } else {
+        alert('Please enter your name!');
+    }
+});
+
 function handleSwipe(action) {
     const container = document.querySelector('.card-container');
     const currentCard = container.querySelector('.card:last-child');
@@ -110,14 +60,8 @@ function handleSwipe(action) {
         currentCard.style.transform = action === 'like' ? 'translateX(100%)' : 'translateX(-100%)';
         currentCard.style.opacity = '0';
 
-        const cardData = cardsData[currentCardIndex];
-        
-        // Log the swipe interaction
-        logInteraction('swipe', {
-            profile: cardData.name,
-            action: action,
-            timestamp: new Date().toISOString()
-        });
+        const cardData = cardsData[currentCardIndex]; // Get current card data
+        userLikes.push({ name: userName, liked: cardData.name, likedStatus: action }); // Store user's choice
 
         currentCardIndex++;
         setTimeout(() => {
@@ -125,8 +69,8 @@ function handleSwipe(action) {
             if (currentCardIndex < cardsData.length) {
                 loadCards();
             } else {
+                saveDataToFile(); // Save the data to a text file after the last card
                 alert('No more profiles!');
-                logInteraction('session_end');
             }
         }, 300);
     }
@@ -136,6 +80,7 @@ function handleSwipe(action) {
 function handleTouchStart(event) {
     startX = event.touches[0].clientX;
     isDragging = true;
+    
 }
 
 function handleTouchMove(event) {
@@ -148,7 +93,7 @@ function handleTouchMove(event) {
     }
 }
 
-function handleTouchEnd() {
+function handleTouchEnd(event) {
     const currentCard = document.querySelector('.card:last-child');
     isDragging = false;
     cancelAnimationFrame(animationId);
@@ -156,12 +101,11 @@ function handleTouchEnd() {
         handleSwipe('like');
     } else if (currentTranslate < -100) {
         handleSwipe('dislike');
-    } else if (currentCard) {
+    } else {
         currentCard.style.transform = 'translateX(0)';
     }
 }
 
-// Mouse event handlers
 function handleMouseDown(event) {
     startX = event.clientX;
     isDragging = true;
@@ -178,7 +122,7 @@ function handleMouseMove(event) {
     }
 }
 
-function handleMouseUp() {
+function handleMouseUp(event) {
     const currentCard = document.querySelector('.card:last-child');
     isDragging = false;
     cancelAnimationFrame(animationId);
@@ -186,44 +130,138 @@ function handleMouseUp() {
         handleSwipe('like');
     } else if (currentTranslate < -100) {
         handleSwipe('dislike');
-    } else if (currentCard) {
+    } else {
         currentCard.style.transform = 'translateX(0)';
     }
 }
 
-function handleMouseLeave() {
+function handleMouseLeave(event) {
     const currentCard = document.querySelector('.card:last-child');
-    if (currentCard) {
-        isDragging = false;
-        cancelAnimationFrame(animationId);
-        currentCard.style.transform = 'translateX(0)';
-    }
+    isDragging = false;
+    cancelAnimationFrame(animationId);
+    currentCard.style.transform = 'translateX(0)';
 }
 
-function animation() {
-    if (isDragging) {
-        animationId = requestAnimationFrame(animation);
-    }
-}
 
-// Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('submitName').addEventListener('click', async () => {
-        const nameInput = document.getElementById('nameInput').value;
-        if (nameInput) {
-            userName = nameInput;
-            // Log the session start
-            await logInteraction('session_start');
-            
-            document.getElementById('nameInputCard').style.display = 'none';
-            document.querySelector('.card-container').style.display = 'block';
-            document.querySelector('.buttons').style.display = 'block';
-            loadCards();
-        } else {
-            alert('Please enter your name!');
-        }
-    });
+// Replace these constants with your actual values// Use environment variables for security in real applicat
+const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
+const octokit = new MyOctokit({ auth: "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" });
 
-    document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
-    document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
+  function saveDataToFile(){
+
+const {
+  updated,
+  data: { commit },
+} = await octokit.createOrUpdateTextFile({
+  owner: "aminelahouazi",
+  repo: "cat_tiinder",
+  path: "userLikes.txt",
+  content: userLikes,
+  message: "update userlikes.txt",
 });
+
+if (updated) {
+  console.log("test.txt updated via %s");
+} else {
+  console.log("test.txt already up to date");
+}
+
+    
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
+document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
