@@ -1,3 +1,9 @@
+import { Octokit } from "https://esm.sh/@octokit/core";
+  import {
+    createOrUpdateTextFile,
+    composeCreateOrUpdateTextFile,
+  } from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
+
 // script.js
 const cardsData = [
     { name: 'Person 1', image: 'https://via.placeholder.com/300x400?text=Person+1' },
