@@ -6,7 +6,7 @@ import { Octokit } from "https://esm.sh/@octokit/core";
 
 // script.js
 const cardsData = [
-    { name: 'Carrot', image: 'carrot.jpg' },
+    { name: 'Carrot', image: 'https://github.com/aminelahouazi/cat_tiinder/carrot.jpg' },
     { name: 'Person 2', image: 'https://via.placeholder.com/300x400?text=Person+2' },
     { name: 'Person 3', image: 'https://via.placeholder.com/300x400?text=Person+3' },
 ];
@@ -151,7 +151,7 @@ function handleMouseLeave(event) {
 
 // Replace these constants with your actual values// Use environment variables for security in real applicat
 const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
-const octokit = new MyOctokit({ Authorization: `token ${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}`);
+const octokit = new MyOctokit({ Authorization: `token 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`);
 
 async function saveDataToFile(){
 
