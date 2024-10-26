@@ -1,20 +1,12 @@
+// First, add these script tags to your HTML file, above your main script:
+// <script src="https://cdn.jsdelivr.net/npm/@octokit/core"></script>
+// <script src="https://cdn.jsdelivr.net/npm/@octokit/plugin-create-or-update-text-file"></script>
+
 // script.js
- import { Octokit } from "https://esm.sh/@octokit/core";
-import {
-  createOrUpdateTextFile,
-} from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
-
-// Initialize Octokit with plugin
 const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
-// Note: In production, use environment variables for the auth token
 const octokit = new MyOctokit({ 
-  auth: "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" // Replace with your actual GitHub token
+  auth: "your-github-token" // Replace with your actual GitHub token
 });
-
-function getFormattedDateTime() {
-  const now = new Date();
-  return now.toISOString();
-}
 
 const cardsData = [
     { name: 'Person 1', image: 'https://via.placeholder.com/300x400?text=Person+1' },
@@ -27,14 +19,69 @@ let startX = 0;
 let isDragging = false;
 let currentTranslate = 0;
 let animationId = null;
-let userName = ""; // Store the user's name
-let userLikes = []; // Store user's likes
+let userName = "";
 
+// Helper function to get formatted date-time
+function getFormattedDateTime() {
+    const now = new Date();
+    return now.toISOString();
+}
 
-// Load initial cards
+// Main logging function
+async function logInteraction(interactionType, details = {}) {
+    try {
+        // Create new log entry
+        const timestamp = getFormattedDateTime();
+        const newEntry = {
+            timestamp,
+            type: interactionType,
+            user: userName,
+            ...details
+        };
+
+        try {
+            // Try to get existing content
+            const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+                owner: "aminelahouazi",
+                repo: "cat_tiinder",
+                path: "userLikes.txt"
+            });
+
+            // Decode existing content from base64
+            const existingContent = Buffer.from(data.content, 'base64').toString();
+            const updatedContent = existingContent + JSON.stringify(newEntry) + '\n';
+
+            // Update file
+            await octokit.createOrUpdateTextFile({
+                owner: "aminelahouazi",
+                repo: "cat_tiinder",
+                path: "userLikes.txt",
+                content: updatedContent,
+                message: `Update userLikes.txt - ${interactionType} by ${userName}`,
+            });
+
+        } catch (error) {
+            if (error.status === 404) {
+                // File doesn't exist yet, create it
+                await octokit.createOrUpdateTextFile({
+                    owner: "aminelahouazi",
+                    repo: "cat_tiinder",
+                    path: "userLikes.txt",
+                    content: JSON.stringify(newEntry) + '\n',
+                    message: `Create userLikes.txt - First entry by ${userName}`,
+                });
+            } else {
+                throw error;
+            }
+        }
+    } catch (error) {
+        console.error("Error logging interaction:", error);
+    }
+}
+
 function loadCards() {
     const container = document.querySelector('.card-container');
-    container.innerHTML = ''; // Clear previous cards
+    container.innerHTML = '';
     cardsData.forEach((data, index) => {
         const card = document.createElement('div');
         card.classList.add('card');
@@ -42,7 +89,6 @@ function loadCards() {
         card.style.zIndex = cardsData.length - index;
         card.innerHTML = `<h3>${data.name}</h3>`;
 
-        // Add touch and mouse event listeners for swiping
         card.addEventListener('touchstart', handleTouchStart);
         card.addEventListener('touchmove', handleTouchMove);
         card.addEventListener('touchend', handleTouchEnd);
@@ -86,33 +132,10 @@ function handleSwipe(action) {
     }
 }
 
-// Modified name submission handler
-document.getElementById('submitName').addEventListener('click', async () => {
-    const nameInput = document.getElementById('nameInput').value;
-    if (nameInput) {
-        userName = nameInput;
-        // Log the session start
-        await logInteraction('session_start');
-        
-        document.getElementById('nameInputCard').style.display = 'none';
-        document.querySelector('.card-container').style.display = 'block';
-        document.querySelector('.buttons').style.display = 'block';
-        loadCards();
-    } else {
-        alert('Please enter your name!');
-    }
-});
-
-// Add end session logging when all cards are done
-function handleEndSession() {
-    logInteraction('session_end');
-}
-
 // Touch event handlers
 function handleTouchStart(event) {
     startX = event.touches[0].clientX;
     isDragging = true;
-    
 }
 
 function handleTouchMove(event) {
@@ -125,7 +148,7 @@ function handleTouchMove(event) {
     }
 }
 
-function handleTouchEnd(event) {
+function handleTouchEnd() {
     const currentCard = document.querySelector('.card:last-child');
     isDragging = false;
     cancelAnimationFrame(animationId);
@@ -133,11 +156,12 @@ function handleTouchEnd(event) {
         handleSwipe('like');
     } else if (currentTranslate < -100) {
         handleSwipe('dislike');
-    } else {
+    } else if (currentCard) {
         currentCard.style.transform = 'translateX(0)';
     }
 }
 
+// Mouse event handlers
 function handleMouseDown(event) {
     startX = event.clientX;
     isDragging = true;
@@ -154,7 +178,7 @@ function handleMouseMove(event) {
     }
 }
 
-function handleMouseUp(event) {
+function handleMouseUp() {
     const currentCard = document.querySelector('.card:last-child');
     isDragging = false;
     cancelAnimationFrame(animationId);
@@ -162,147 +186,44 @@ function handleMouseUp(event) {
         handleSwipe('like');
     } else if (currentTranslate < -100) {
         handleSwipe('dislike');
-    } else {
+    } else if (currentCard) {
         currentCard.style.transform = 'translateX(0)';
     }
 }
 
-function handleMouseLeave(event) {
+function handleMouseLeave() {
     const currentCard = document.querySelector('.card:last-child');
-    isDragging = false;
-    cancelAnimationFrame(animationId);
-    currentCard.style.transform = 'translateX(0)';
-}
-
-
-async function logInteraction(interactionType, details = {}) {
-  try {
-    // Create new log entry
-    const timestamp = getFormattedDateTime();
-    const newEntry = {
-      timestamp,
-      type: interactionType,
-      user: userName,
-      ...details
-    };
-
-    // First, try to get existing content
-    try {
-      const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-        owner: "aminelahouazi",
-        repo: "cat_tiinder",
-        path: "userLikes.txt"
-      });
-
-      // Decode existing content from base64
-      const existingContent = Buffer.from(data.content, 'base64').toString();
-      const updatedContent = existingContent + JSON.stringify(newEntry) + '\n';
-
-      // Update file
-      const { data: updateData } = await octokit.createOrUpdateTextFile({
-        owner: "aminelahouazi",
-        repo: "cat_tiinder",
-        path: "userLikes.txt",
-        content: updatedContent,
-        message: `Update userLikes.txt - ${interactionType} by ${userName}`,
-      });
-
-      console.log("Successfully logged interaction:", updateData.commit.html_url);
-
-    } catch (error) {
-      if (error.status === 404) {
-        // File doesn't exist yet, create it
-        const { data: createData } = await octokit.createOrUpdateTextFile({
-          owner: "aminelahouazi",
-          repo: "cat_tiinder",
-          path: "userLikes.txt",
-          content: JSON.stringify(newEntry) + '\n',
-          message: `Create userLikes.txt - First entry by ${userName}`,
-        });
-
-        console.log("Created new log file:", createData.commit.html_url);
-      } else {
-        throw error;
-      }
+    if (currentCard) {
+        isDragging = false;
+        cancelAnimationFrame(animationId);
+        currentCard.style.transform = 'translateX(0)';
     }
-  } catch (error) {
-    console.error("Error logging interaction:", error);
-    // Handle error appropriately - maybe show user feedback
-  }
 }
-        
 
-document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
-document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function animation() {
+    if (isDragging) {
+        animationId = requestAnimationFrame(animation);
+    }
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('submitName').addEventListener('click', async () => {
+        const nameInput = document.getElementById('nameInput').value;
+        if (nameInput) {
+            userName = nameInput;
+            // Log the session start
+            await logInteraction('session_start');
+            
+            document.getElementById('nameInputCard').style.display = 'none';
+            document.querySelector('.card-container').style.display = 'block';
+            document.querySelector('.buttons').style.display = 'block';
+            loadCards();
+        } else {
+            alert('Please enter your name!');
+        }
+    });
+
+    document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
+    document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
+});
