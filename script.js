@@ -151,7 +151,7 @@ function handleMouseLeave(event) {
 
 // Replace these constants with your actual values// Use environment variables for security in real applicat
 const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
-const octokit = new MyOctokit({ auth: "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" });
+const octokit = new MyOctokit({ auth: "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" });
 
 async function saveDataToFile(){
 
