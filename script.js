@@ -1,9 +1,21 @@
 // script.js
  import { Octokit } from "https://esm.sh/@octokit/core";
-  import {
-    createOrUpdateTextFile,
-    composeCreateOrUpdateTextFile,
-  } from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
+import {
+  createOrUpdateTextFile,
+} from "https://esm.sh/@octokit/plugin-create-or-update-text-file";
+
+// Initialize Octokit with plugin
+const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
+// Note: In production, use environment variables for the auth token
+const octokit = new MyOctokit({ 
+  auth: "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" // Replace with your actual GitHub token
+});
+
+function getFormattedDateTime() {
+  const now = new Date();
+  return now.toISOString();
+}
+
 const cardsData = [
     { name: 'Person 1', image: 'https://via.placeholder.com/300x400?text=Person+1' },
     { name: 'Person 2', image: 'https://via.placeholder.com/300x400?text=Person+2' },
@@ -44,19 +56,6 @@ function loadCards() {
     });
 }
 
-// Handle the submission of the name
-document.getElementById('submitName').addEventListener('click', () => {
-    const nameInput = document.getElementById('nameInput').value;
-    if (nameInput) {
-        document.getElementById('nameInputCard').style.display = 'none'; // Hide the name input card
-        document.querySelector('.card-container').style.display = 'block'; // Show the card container
-        document.querySelector('.buttons').style.display = 'block'; // Show the card container
-        loadCards();
-    } else {
-        alert('Please enter your name!');
-    }
-});
-
 function handleSwipe(action) {
     const container = document.querySelector('.card-container');
     const currentCard = container.querySelector('.card:last-child');
@@ -70,7 +69,8 @@ function handleSwipe(action) {
         // Log the swipe interaction
         logInteraction('swipe', {
             profile: cardData.name,
-            action: action
+            action: action,
+            timestamp: new Date().toISOString()
         });
 
         currentCardIndex++;
@@ -80,18 +80,19 @@ function handleSwipe(action) {
                 loadCards();
             } else {
                 alert('No more profiles!');
+                logInteraction('session_end');
             }
         }, 300);
     }
 }
 
-// Modify your name submission handler to log the start of a session
-document.getElementById('submitName').addEventListener('click', () => {
+// Modified name submission handler
+document.getElementById('submitName').addEventListener('click', async () => {
     const nameInput = document.getElementById('nameInput').value;
     if (nameInput) {
         userName = nameInput;
         // Log the session start
-        logInteraction('session_start');
+        await logInteraction('session_start');
         
         document.getElementById('nameInputCard').style.display = 'none';
         document.querySelector('.card-container').style.display = 'block';
@@ -174,41 +175,60 @@ function handleMouseLeave(event) {
 }
 
 
-function logInteraction(){
-        let sha;
-        let existingContent = '';
+async function logInteraction(interactionType, details = {}) {
+  try {
+    // Create new log entry
+    const timestamp = getFormattedDateTime();
+    const newEntry = {
+      timestamp,
+      type: interactionType,
+      user: userName,
+      ...details
+    };
 
-    
+    // First, try to get existing content
+    try {
+      const { data } = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+        owner: "aminelahouazi",
+        repo: "cat_tiinder",
+        path: "userLikes.txt"
+      });
 
-        // Create new log entry
-        const timestamp = getFormattedDateTime();
-        const newEntry = `[${timestamp}] Type: ${interactionType}, User: ${userName}`;
+      // Decode existing content from base64
+      const existingContent = Buffer.from(data.content, 'base64').toString();
+      const updatedContent = existingContent + JSON.stringify(newEntry) + '\n';
 
-        // Add additional details if they exist
-        if (details.profile) newEntry += `, Profile: ${details.profile}`;
-        if (details.action) newEntry += `, Action: ${details.action}`;
-        
-        const updatedContent = existingContent + newEntry + '\n';
+      // Update file
+      const { data: updateData } = await octokit.createOrUpdateTextFile({
+        owner: "aminelahouazi",
+        repo: "cat_tiinder",
+        path: "userLikes.txt",
+        content: updatedContent,
+        message: `Update userLikes.txt - ${interactionType} by ${userName}`,
+      });
 
-        // Prepare the request body
-        const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
-const octokit = new MyOctokit({ auth: "secret123" });
-const {
-  updated,
-  data: { commit },
-} = await octokit.createOrUpdateTextFile({
-  owner: "aminelahouazi",
-  repo: "cat_tiinder",
-  path: "userLikes.txt",
-  content: updatedContent,
-  message: "update userLikes.txt",
-});
+      console.log("Successfully logged interaction:", updateData.commit.html_url);
 
-if (updated) {
-  console.log("test.txt updated via %s", data.commit.html_url);
-} else {
-  console.log("test.txt already up to date");
-}
+    } catch (error) {
+      if (error.status === 404) {
+        // File doesn't exist yet, create it
+        const { data: createData } = await octokit.createOrUpdateTextFile({
+          owner: "aminelahouazi",
+          repo: "cat_tiinder",
+          path: "userLikes.txt",
+          content: JSON.stringify(newEntry) + '\n',
+          message: `Create userLikes.txt - First entry by ${userName}`,
+        });
+
+        console.log("Created new log file:", createData.commit.html_url);
+      } else {
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error("Error logging interaction:", error);
+    // Handle error appropriately - maybe show user feedback
+  }
 }
         
 
