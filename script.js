@@ -153,7 +153,7 @@ function handleMouseLeave(event) {
 const MyOctokit = Octokit.plugin(createOrUpdateTextFile);
 const octokit = new MyOctokit({ auth: "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" });
 
-  function saveDataToFile(){
+async function saveDataToFile(){
 
 const {
   updated,
@@ -176,98 +176,6 @@ if (updated) {
   }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
 document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
