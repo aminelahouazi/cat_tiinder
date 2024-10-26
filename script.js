@@ -22,7 +22,7 @@ function loadCards() {
     cardsData.forEach((data, index) => {
         const card = document.createElement('div');
         card.classList.add('card');
-        card.style.backgroundImage = "url("+${data.image}+")";
+        card.style.backgroundImage = `url(${data.image})`;
         card.style.zIndex = cardsData.length - index;
         card.innerHTML = `<h3>${data.name}</h3>`;
 
