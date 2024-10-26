@@ -6,7 +6,7 @@ import { Octokit } from "https://esm.sh/@octokit/core";
 
 // script.js
 const cardsData = [
-    { name: 'Person 1', image: 'https://via.placeholder.com/300x400?text=Person+1' },
+    { name: 'Carrot', image: 'carrot.jpg' },
     { name: 'Person 2', image: 'https://via.placeholder.com/300x400?text=Person+2' },
     { name: 'Person 3', image: 'https://via.placeholder.com/300x400?text=Person+3' },
 ];
