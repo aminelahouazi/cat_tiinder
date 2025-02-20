@@ -1,207 +1,72 @@
-import { db } from './database.js';
-// script.js
-const cardsData = [
-   
-    { name: 'baby cat', image: "catbaby.jpg" },
-    { name: 'carrot', image: "carrot.jpg" },
-    { name: 'literally me cat', image: "literallymecat.jpg" },
-    { name: 'a cat idontlike', image: "contented_cat.jpg" },
-    { name: 'uprobably cat', image: "catcurious.jpg" },
+import * as THREE from "https://cdn.skypack.dev/three@0.129.0/build/three.module.js";
+// To allow for the camera to move around the scene
+import { OrbitControls } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/controls/OrbitControls.js";
+// To allow for importing the .gltf file
+import { GLTFLoader } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/loaders/GLTFLoader.js";
+
+import { ARButton } from "https://cdn.skypack.dev/three@0.129.0/examples/jsm/webxr/ARButton.js";
+
+let scene, camera, renderer;
+let decorationModel;
+
+function init() {
+    // Create scene
+    scene = new THREE.Scene();
+
+    // Set up camera
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
     
+    // Set up renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
 
-];
+    // Add AR button
+    document.body.appendChild(ARButton.createButton(renderer));
 
-let currentCardIndex = 0;
-let startX = 0;
-let isDragging = false;
-let currentTranslate = 0;
-let animationId = null;
-let currentUserId = null; // Store the current user's ID
+    // Add lighting
+    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+    scene.add(light);
 
-window.addEventListener('load', async () => {
-    try {
-        await db.init();
-        console.log('Database initialized successfully');
-    } catch (error) {
-        console.error('Failed to initialize database:', error);
-    }
-});
-// Load initial cardsrdsData.length}`);
-function loadCards() {
-    const container = document.querySelector('.card-container');
-    container.innerHTML = ''; // Clear previous cards
-    
-    // Load cards in reverse order so the first card is on top
-    for (let i = cardsData.length - 1; i >= currentCardIndex; i--) {
-        const data = cardsData[i];
-        const card = document.createElement('div');
-        card.classList.add('card');
-        card.setAttribute('data-index', i); // Add index as data attribute
-        card.style.backgroundImage = `url(${data.image})`;
-        card.style.backgroundSize = 'cover';
-        card.style.backgroundPosition = 'center';
-        
-        card.innerHTML = `<h3>${data.name}</h3>`;
+    // Load a decoration model (Replace with your 3D model)
+    const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2); // Example cube (replace with model)
+    const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    decorationModel = new THREE.Mesh(geometry, material);
+    decorationModel.position.set(0, 0, -1); // 1 meter in front of the user
+    scene.add(decorationModel);
 
-        // Add touch and mouse event listeners for swiping
-        card.addEventListener('touchstart', handleTouchStart);
-        card.addEventListener('touchmove', handleTouchMove);
-        card.addEventListener('touchend', handleTouchEnd);
-
-        card.addEventListener('mousedown', handleMouseDown);
-        card.addEventListener('mousemove', handleMouseMove);
-        card.addEventListener('mouseup', handleMouseUp);
-        card.addEventListener('mouseleave', handleMouseLeave);
-
-        container.appendChild(card);
-    }
-    
-    console.log(`Loaded cards. Current index: ${currentCardIndex}, Total cards: ${cardsData.length}`);
-}
-async function handleSwipe(action) {
-    if (currentCardIndex >= cardsData.length) {
-        console.log('No more cards to swipe');
-        return;
-    }
-
-    const container = document.querySelector('.card-container');
-    const currentCard = container.querySelector(`.card[data-index="${currentCardIndex}"]`);
-    
-    if (!currentCard) {
-        console.log('No current card found');
-        return;
-    }
-
-    try {
-        // Store the current card's data
-        const cardData = cardsData[currentCardIndex];
-        
-        // Animate the card
-        currentCard.style.transition = "transform 0.3s ease, opacity 0.3s ease";
-        currentCard.style.transform = action === 'like' ? 'translateX(100%)' : 'translateX(-100%)';
-        currentCard.style.opacity = '0';
-
-        // Save the like/dislike to database
-        await db.addLike(currentUserId, cardData, action === 'like');
-        
-        // Remove the card after animation
-        setTimeout(async () => {
-            currentCard.remove();
-            currentCardIndex++;
-            console.log(`Card swiped. New index: ${currentCardIndex}`);
-            
-            if (currentCardIndex >= cardsData.length) {
-                console.log('No more cards. Showing results.');
-                document.getElementById('message').style.display = "block";
-                document.getElementById('message').style.transition ="opacity 5s ease";
-            
-            }
-        }, 300);
-
-    } catch (error) {
-        console.error('Error in handleSwipe:', error);
-    }
+    // Start rendering loop
+    renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+    });
 }
 
-// Modified name submission handler
-document.getElementById('submitName').addEventListener('click', async () => {
-    const nameInput = document.getElementById('nameInput').value;
-    if (nameInput) {
-        try {
-            currentUserId = await db.addUser(nameInput);
-            document.getElementById('nameInputCard').style.display = 'none';
-            document.querySelector('.card-container').style.display = 'block';
-            document.querySelector('.buttons').style.display = 'block';
-            currentCardIndex = 0;
-            loadCards();
-        } catch (error) {
-            console.error('Error saving user:', error);
-            alert('Error saving user. Please try again.');
-        }
-    } else {
-        alert('Please enter your name!');
+// Start AR experience
+init();
+
+document.addEventListener("click", (event) => {
+    if (!decorationModel) return;
+
+    // Get touch position
+    let touchX = (event.clientX / window.innerWidth) * 2 - 1;
+    let touchY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Convert touch position to world space
+    let raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(touchX, touchY), camera);
+
+    let intersects = raycaster.intersectObjects(scene.children, true);
+    if (intersects.length > 0) {
+        decorationModel.position.set(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
     }
 });
 
-// Modified touch handlers
-function handleTouchStart(event) {
-    if (currentCardIndex >= cardsData.length) return;
-    startX = event.touches[0].clientX;
-    isDragging = true;
-}
 
-function handleTouchMove(event) {
-    if (!isDragging || currentCardIndex >= cardsData.length) return;
-    const currentX = event.touches[0].clientX;
-    currentTranslate = currentX - startX;
-    const currentCard = document.querySelector(`.card[data-index="${currentCardIndex}"]`);
-    if (currentCard) {
-        currentCard.style.transform = `translateX(${currentTranslate}px)`;
-    }
-}
+const loader = new GLTFLoader();
+loader.load("car.glb", (gltf) => {
+    decorationModel = gltf.scene;
+    decorationModel.position.set(0, 0, -50); // Start 1m in front
+    scene.add(decorationModel);
+});
 
-function handleTouchEnd() {
-    if (!isDragging) return;
-    isDragging = false;
-    const currentCard = document.querySelector(`.card[data-index="${currentCardIndex}"]`);
-    if (currentCard) {
-        if (currentTranslate > 100) {
-            handleSwipe('like');
-        } else if (currentTranslate < -100) {
-            handleSwipe('dislike');
-        } else {
-            currentCard.style.transform = 'translateX(0)';
-        }
-    }
-    currentTranslate = 0;
-}
-
-// Modified mouse handlers
-function handleMouseDown(event) {
-    if (currentCardIndex >= cardsData.length) return;
-    startX = event.clientX;
-    isDragging = true;
-    animationId = requestAnimationFrame(animation);
-}
-
-function handleMouseMove(event) {
-    if (!isDragging || currentCardIndex >= cardsData.length) return;
-    const currentX = event.clientX;
-    currentTranslate = currentX - startX;
-    const currentCard = document.querySelector(`.card[data-index="${currentCardIndex}"]`);
-    if (currentCard) {
-        currentCard.style.transform = `translateX(${currentTranslate}px)`;
-    }
-}
-
-function handleMouseUp() {
-    if (!isDragging) return;
-    isDragging = false;
-    cancelAnimationFrame(animationId);
-    const currentCard = document.querySelector(`.card[data-index="${currentCardIndex}"]`);
-    if (currentCard) {
-        if (currentTranslate > 100) {
-            handleSwipe('like');
-        } else if (currentTranslate < -100) {
-            handleSwipe('dislike');
-        } else {
-            currentCard.style.transform = 'translateX(0)';
-        }
-    }
-    currentTranslate = 0;
-}
-
-function handleMouseLeave() {
-    if (!isDragging) return;
-    isDragging = false;
-    cancelAnimationFrame(animationId);
-    const currentCard = document.querySelector(`.card[data-index="${currentCardIndex}"]`);
-    if (currentCard) {
-        currentCard.style.transform = 'translateX(0)';
-    }
-    currentTranslate = 0;
-}
-
-
-document.getElementById('like').addEventListener('click', () => handleSwipe('like'));
-document.getElementById('dislike').addEventListener('click', () => handleSwipe('dislike'));
